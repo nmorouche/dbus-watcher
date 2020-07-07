@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#coding: utf-8
 
 import os
 import sys
@@ -8,6 +9,10 @@ import signal
 import dbus
 import dbus.service
 import dbus.mainloop.glib
+import lcddriver
+import time
+import RPi.GPIO as GPIO
+import time
 
 try:
     import gobject
@@ -24,8 +29,26 @@ LOG_FORMAT = '%(name)s[%(process)d]: %(message)s'
 VOLUME_MAX = 141
 #VOLUME_MAX = 159
 
+GPIO.setmode(GPIO.BCM)
+
+display = lcddriver.lcd()
+
 def shutdown(signum, frame):
     mainloop.quit()
+
+def long_string(display, text = '', num_line = 1, num_cols = 16):
+        if(len(text) > num_cols):
+                display.lcd_display_string(text[:num_cols],num_line)
+                time.sleep(1)
+                for i in range(len(text) - num_cols + 1):
+                        text_to_print = text[i:i+num_cols]
+                        display.lcd_display_string(text_to_print,num_line)
+                        time.sleep(0.4)
+	        time.sleep(1)
+		display.lcd_display_string('                ', num_line)
+		display.lcd_display_string(text, num_line)
+        else:
+                display.lcd_display_string(text,num_line)
 
 def pa_source_number(address):
     """ Returns the Pulseaudio source number matching bluetooth address
@@ -110,12 +133,14 @@ def device_property_changed(interface, properties, invalidated, path):
             logger.debug(u'Bluetooth A2DP source: {} ({}) codec is {}'.format(name, address, int(codec)))
     elif interface == 'org.bluez.MediaPlayer1':
         if 'Track' in properties:
-            track = properties['Track']
+    	    track = properties['Track']
+	    long_string(display, 'chr(240)',1)
+	    display.lcd_clear()
+	    long_string(display, track['Artist'], 2)
+	    long_string(display, track['Title'], 1)
 	    print 'GUETZI VOIR LE TITRE DE SES MORTS :', track['Title']
-            print 'GUETZI VOIR L\'ALBUM DE SES MORTS :', track['Album']
 	    print 'ET MAINTENANT GUETZI VOIR CET ARTISTE DE SES MORTS (MAIS ATT LARTISTE C\'EST APACHE?) :', track['Artist']
-	    logger.debug(u'GUETZI VOIR LE TITRE DE SES MORTS :{}'.format(track['Title']))
-            logger.debug(u'GUETZI VOIR L\'ALBUM DE SES MORTS :{}'.format(track['Album']))
+	    print 'GUETZI VOIR LA RAFALEEEEEEEEEEE : ', track['Genre']
 
 if __name__ == '__main__':
 
