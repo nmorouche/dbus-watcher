@@ -10,7 +10,7 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 import lcddriver
-import time
+import alsaaudio
 import RPi.GPIO as GPIO
 import time
 
@@ -31,6 +31,12 @@ VOLUME_MAX = 141
 
 GPIO.setmode(GPIO.BCM)
 
+GPIO_TRIGGER = 23
+GPIO_ECHO = 24
+
+GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
+GPIO.setup(GPIO_ECHO, GPIO.IN)
+GPIO.output(GPIO_TRIGGER, False)
 display = lcddriver.lcd()
 
 def shutdown(signum, frame):
@@ -49,6 +55,26 @@ def long_string(display, text = '', num_line = 1, num_cols = 16):
 		display.lcd_display_string(text, num_line)
         else:
                 display.lcd_display_string(text,num_line)
+
+def distance():
+        GPIO.output(GPIO_TRIGGER, True)
+        time.sleep(0.00001)
+        GPIO.output(GPIO_TRIGGER, False)
+
+        startTime = time.time()
+        stopTime = time.time()
+
+        while GPIO.input(GPIO_ECHO) == 0:
+                startTime == time.time()
+
+        while GPIO.input(GPIO_ECHO) == 1:
+                stopTime = time.time()
+
+        timeElapsed = stopTime - startTime
+
+        distance = round((stopTime - startTime) * 340 * 100 / 2, 1) 
+
+	return distance
 
 def pa_source_number(address):
     """ Returns the Pulseaudio source number matching bluetooth address
@@ -134,13 +160,13 @@ def device_property_changed(interface, properties, invalidated, path):
     elif interface == 'org.bluez.MediaPlayer1':
         if 'Track' in properties:
     	    track = properties['Track']
-	    long_string(display, 'chr(240)',1)
 	    display.lcd_clear()
 	    long_string(display, track['Artist'], 2)
 	    long_string(display, track['Title'], 1)
-	    print 'GUETZI VOIR LE TITRE DE SES MORTS :', track['Title']
-	    print 'ET MAINTENANT GUETZI VOIR CET ARTISTE DE SES MORTS (MAIS ATT LARTISTE C\'EST APACHE?) :', track['Artist']
-	    print 'GUETZI VOIR LA RAFALEEEEEEEEEEE : ', track['Genre']
+	    if track['Genre'] != '':
+		display.lcd_clear()
+            	long_string(display, 'Recomm vol: ' + str(int(distance())), 2)
+           	long_string(display, 'Current vol: ' + str(alsaaudio.Mixer().getvolume()[0]), 1)
 
 if __name__ == '__main__':
 
