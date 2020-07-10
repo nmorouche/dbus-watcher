@@ -1,7 +1,8 @@
 #!/usr/bin/python
-#coding: utf-8
+# -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import sys
 import logging
 import logging.handlers
@@ -13,6 +14,7 @@ import lcddriver
 import alsaaudio
 import RPi.GPIO as GPIO
 import time
+import re
 
 try:
     import gobject
@@ -37,44 +39,17 @@ GPIO_ECHO = 24
 GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
 GPIO.setup(GPIO_ECHO, GPIO.IN)
 GPIO.output(GPIO_TRIGGER, False)
+
+GPIO.cleanup(GPIO_TRIGGER)
+GPIO.cleanup(GPIO_ECHO)
+
 display = lcddriver.lcd()
+display.lcd_clear()
+
+os.system('pkill -f LCDDisplay.py')
 
 def shutdown(signum, frame):
     mainloop.quit()
-
-def long_string(display, text = '', num_line = 1, num_cols = 16):
-        if(len(text) > num_cols):
-                display.lcd_display_string(text[:num_cols],num_line)
-                time.sleep(1)
-                for i in range(len(text) - num_cols + 1):
-                        text_to_print = text[i:i+num_cols]
-                        display.lcd_display_string(text_to_print,num_line)
-                        time.sleep(0.4)
-	        time.sleep(1)
-		display.lcd_display_string('                ', num_line)
-		display.lcd_display_string(text, num_line)
-        else:
-                display.lcd_display_string(text,num_line)
-
-def distance():
-        GPIO.output(GPIO_TRIGGER, True)
-        time.sleep(0.00001)
-        GPIO.output(GPIO_TRIGGER, False)
-
-        startTime = time.time()
-        stopTime = time.time()
-
-        while GPIO.input(GPIO_ECHO) == 0:
-                startTime == time.time()
-
-        while GPIO.input(GPIO_ECHO) == 1:
-                stopTime = time.time()
-
-        timeElapsed = stopTime - startTime
-
-        distance = round((stopTime - startTime) * 340 * 100 / 2, 1) 
-
-	return distance
 
 def pa_source_number(address):
     """ Returns the Pulseaudio source number matching bluetooth address
@@ -86,18 +61,23 @@ def pa_source_number(address):
         int: pulseaudio source number
 
     """
-
-    stream = os.popen('pactl list short sources | grep bluez_source.{}'.format(address.replace(':', '_')))
-    pulseaudio_source = stream.read()
+    os.system(u'pactl list short sources | grep bluez_source.{} > device_address_output.txt'.format(address.replace(':', '_')))
+    pulseaudio_source = ''
+    last_line = ''
+    with open('device_address_output.txt') as f:
+	for line in f:
+	        pass
+        	last_line = line
+	pulseaudio_source = last_line
 
     if pulseaudio_source == '':
-        # Cannot find source in pulseaudio source list
-        logger.debug(u'Cannot find pulseaudio A2DP source {}'.format(address))
-        return
+	# Cannot find source in pulseaudio source list
+	logger.debug(u'Cannot find pulseaudio A2DP source {}'.format(address))
+	return
 
     # Pulseaudio source number is the first field in a \t seperated string
     pa_source_number = pulseaudio_source.split('\t')[0]
-    logger.debug(u'Pulseaudio A2DP source {} is #{}'.format(address, pa_source_number))
+    os.system('rm -f device_address_output.txt')
     return pa_source_number
 
 def pa_set_volume(address, volume):
@@ -115,7 +95,7 @@ def pa_set_volume(address, volume):
     pa_source = pa_source_number(address)
     if pa_source:
         logger.debug(u'Running pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
-        os.system('pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
+	os.system('pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
     else:
         logger.debug(u'Skipping volume change')
 
@@ -160,13 +140,15 @@ def device_property_changed(interface, properties, invalidated, path):
     elif interface == 'org.bluez.MediaPlayer1':
         if 'Track' in properties:
     	    track = properties['Track']
-	    display.lcd_clear()
-	    long_string(display, track['Artist'], 2)
-	    long_string(display, track['Title'], 1)
 	    if track['Genre'] != '':
 		display.lcd_clear()
-            	long_string(display, 'Recomm vol: ' + str(int(distance())), 2)
-           	long_string(display, 'Current vol: ' + str(alsaaudio.Mixer().getvolume()[0]), 1)
+		os.system('pkill -f LCDDisplay.py')
+            	os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py {} {} {} &'.format(0,0, track['Genre']))
+	    else:
+		title = re.escape(u'{}'.format(track['Title']))
+		artist = re.escape(u'{}'.format(track['Artist']))
+		os.system('pkill -f LCDDisplay.py')
+		os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py {} {} &'.format(title, artist).encode('utf-8'))
 
 if __name__ == '__main__':
 

@@ -1,0 +1,14 @@
+[Unit]
+Description="Bluetooth bus watcher"
+After=bluetooth.target
+
+[Service]
+ExecStart=/home/pi/Documents/PA/AVRCP/dbus-watcher/avrcp_watcher.py
+WorkingDirectory=/home/pi/Documents/PA/AVRCP/dbus-watcher
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
