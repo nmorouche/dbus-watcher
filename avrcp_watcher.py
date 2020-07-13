@@ -43,12 +43,11 @@ GPIO.output(GPIO_TRIGGER, False)
 
 display = lcddriver.lcd()
 
-os.system('sudo python /home/pi/Documents/PA/AVRCP/dbus-watcher/Bluetooth/bluetooth_pairing.py &')
 os.system('sudo pkill -f LCDDisplay.py')
 display.lcd_clear()
 
-title = "Test"
-artist = "Test"
+title = "Unknown"
+artist = "Unknown"
 
 def shutdown(signum, frame):
     mainloop.quit()
@@ -84,10 +83,10 @@ def pa_source_number(address):
         int: pulseaudio source number
 
     """
-    os.system(u'pactl list short sources | grep bluez_source.{} > /home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt'.format(address.replace(':', '_')))
+    os.system(u'pactl list short sources | grep bluez_source.{} > device_address_output.txt'.format(address.replace(':', '_')))
     pulseaudio_source = ''
     last_line = ''
-    with open('/home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt') as f:
+    with open('device_address_output.txt') as f:
 	for line in f:
 	        pass
         	last_line = line
@@ -100,7 +99,7 @@ def pa_source_number(address):
 
     # Pulseaudio source number is the first field in a \t seperated string
     pa_source_number = pulseaudio_source.split('\t')[0]
-    os.system('rm -f /home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt')
+    os.system('rm -f device_address_output.txt')
     return pa_source_number
 
 def pa_set_volume(address, volume):
@@ -116,7 +115,6 @@ def pa_set_volume(address, volume):
 
     # Let's find the pulseaudio source matching address and set its volume
     pa_source = pa_source_number(address)
-    logger.debug(u'testlog: {}'.format(pa_source))
     if pa_source:
         logger.debug(u'Running pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
 	os.system('pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))

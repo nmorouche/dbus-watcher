@@ -7,8 +7,8 @@ import os
 button = Button(18, hold_time=2)
 
 def super_print():
-	os.system('python led_pairing.py')
-	os.system('sh BT_script.sh &')
+	os.system('python /home/pi/Documents/PA/AVRCP/dbus-watcher/Bluetooth/led_pairing.py')
+	os.system('sh /home/pi/Documents/PA/AVRCP/dbus-watcher/Bluetooth/BT_script.sh &')
 
 def loop():
 	button.when_released = super_print
