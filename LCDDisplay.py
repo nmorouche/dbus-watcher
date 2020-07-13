@@ -73,7 +73,6 @@ try:
 			display.lcd_display_string(text,num_line)
 
 	while True:
-		print str(sys.argv)
 		if len(sys.argv) == 4:
 			display_distance()
 		else:

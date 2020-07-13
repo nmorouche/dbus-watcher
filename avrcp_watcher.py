@@ -38,18 +38,41 @@ GPIO_ECHO = 24
 
 GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
 GPIO.setup(GPIO_ECHO, GPIO.IN)
+
 GPIO.output(GPIO_TRIGGER, False)
 
-GPIO.cleanup(GPIO_TRIGGER)
-GPIO.cleanup(GPIO_ECHO)
-
 display = lcddriver.lcd()
+
+os.system('sudo python /home/pi/Documents/PA/AVRCP/dbus-watcher/Bluetooth/bluetooth_pairing.py &')
+os.system('sudo pkill -f LCDDisplay.py')
 display.lcd_clear()
 
-os.system('pkill -f LCDDisplay.py')
+title = "Test"
+artist = "Test"
 
 def shutdown(signum, frame):
     mainloop.quit()
+
+def distance():
+	GPIO.output(GPIO_TRIGGER, True)
+        time.sleep(0.00001)
+        GPIO.output(GPIO_TRIGGER, False)
+
+        startTime = time.time()
+        stopTime = time.time()
+
+        while GPIO.input(GPIO_ECHO) == 0:
+                startTime == time.time()
+
+        while GPIO.input(GPIO_ECHO) == 1:
+                stopTime = time.time()
+
+        timeElapsed = stopTime - startTime
+
+        distance = round((stopTime - startTime) * 340 * 100 / 2, 1)
+
+        return distance
+
 
 def pa_source_number(address):
     """ Returns the Pulseaudio source number matching bluetooth address
@@ -61,10 +84,10 @@ def pa_source_number(address):
         int: pulseaudio source number
 
     """
-    os.system(u'pactl list short sources | grep bluez_source.{} > device_address_output.txt'.format(address.replace(':', '_')))
+    os.system(u'pactl list short sources | grep bluez_source.{} > /home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt'.format(address.replace(':', '_')))
     pulseaudio_source = ''
     last_line = ''
-    with open('device_address_output.txt') as f:
+    with open('/home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt') as f:
 	for line in f:
 	        pass
         	last_line = line
@@ -77,7 +100,7 @@ def pa_source_number(address):
 
     # Pulseaudio source number is the first field in a \t seperated string
     pa_source_number = pulseaudio_source.split('\t')[0]
-    os.system('rm -f device_address_output.txt')
+    os.system('rm -f /home/pi/Documents/PA/AVRCP/dbus-watcher/device_address_output.txt')
     return pa_source_number
 
 def pa_set_volume(address, volume):
@@ -93,6 +116,7 @@ def pa_set_volume(address, volume):
 
     # Let's find the pulseaudio source matching address and set its volume
     pa_source = pa_source_number(address)
+    logger.debug(u'testlog: {}'.format(pa_source))
     if pa_source:
         logger.debug(u'Running pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
 	os.system('pactl set-source-volume {} {}'.format(pa_source, format(float(volume) / VOLUME_MAX, '.2f')))
@@ -121,7 +145,8 @@ def device_property_changed(interface, properties, invalidated, path):
         device_properties_interface = dbus.Interface(device_object, 'org.freedesktop.DBus.Properties')
         name = device_properties_interface.Get('org.bluez.Device1', 'Name')
         address = device_properties_interface.Get('org.bluez.Device1', 'Address')
-        if 'State' in properties:
+        os.system('python /home/pi/Documents/PA/AVRCP/dbus-watcher/led_connect.py')
+	if 'State' in properties:
             state = properties['State']
             logger.info(u'Bluetooth A2DP source: {} ({}) is now {}'.format(name, address, state))
             if state == 'active':
@@ -140,15 +165,32 @@ def device_property_changed(interface, properties, invalidated, path):
     elif interface == 'org.bluez.MediaPlayer1':
         if 'Track' in properties:
     	    track = properties['Track']
-	    if track['Genre'] != '':
-		display.lcd_clear()
-		os.system('pkill -f LCDDisplay.py')
-            	os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py {} {} {} &'.format(0,0, track['Genre']))
+	    genre = track.get('Genre')
+	    print genre
+	    if genre:
+	    	if genre == '1':
+			display.lcd_clear()
+			os.system('pkill -f LCDDisplay.py')
+            		os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py {} {} {} &'.format(0,0, track['Genre']))
+	    	elif genre == '2':
+			int_distance = int(distance())
+			while(int_distance > 101):
+				int_distance = int(distance())
+			if int_distance < 101:
+				global title;
+				global artist;
+				os.system(u'amixer set Master {}%'.format(int_distance))
+				os.system('pkill -f LCDDisplay.py')
+                        	os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py "{}" "{}" &'.format(title, artist).encode('utf-8'))
+
 	    else:
-		title = re.escape(u'{}'.format(track['Title']))
-		artist = re.escape(u'{}'.format(track['Artist']))
-		os.system('pkill -f LCDDisplay.py')
-		os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py {} {} &'.format(title, artist).encode('utf-8'))
+		global title
+		global artist
+		title = track.get('Title')
+		artist = track.get('Artist')
+		if title and artist:
+			os.system('pkill -f LCDDisplay.py')
+			os.system(u'python /home/pi/Documents/PA/AVRCP/dbus-watcher/LCDDisplay.py "{}" "{}" &'.format(title, artist).encode('utf-8'))
 
 if __name__ == '__main__':
 

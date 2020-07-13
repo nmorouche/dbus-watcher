@@ -1,0 +1,6 @@
+set timeout 300
+spawn bluetoothctl
+expect "# "
+send "discoverable off\r"
+expect "# "
+send "exit\r"
